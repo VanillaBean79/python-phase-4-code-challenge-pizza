@@ -25,5 +25,38 @@ def index():
     return "<h1>Code challenge</h1>"
 
 
+@app.route('/restaurants')
+def get_restaurants():
+    restaurants = Restaurant.query.all()
+    return make_response(
+        [restaurant.to_dict(rules=('-restaurant_pizzas', '-pizzas',))for restaurant in restaurants],
+        200
+    )
+
+
+@app.route('/restaurants/<int:id>')
+def get_restaurant_by_id(id):
+    restaurant = Restaurant.query.get(id)
+    if not restaurant:
+        return{"error": "Restaurant not found"}, 404
+    
+    return make_response(
+        restaurant.to_dict(rules=('-restaurant_pizzas.restaurant', '-restaurant_pizzas',)),
+        200
+    )
+
+
+@app.route('/restaurants/<int:id>', methods=['DELETE'])
+def delete_restaurant(id):
+    restaurant = Restaurant.query.get(id)
+    if not restaurant:
+        return {'error': "Restaurant not found"}, 404
+    
+    db.session.delete(restaurant)
+    db.session.commit()
+
+    return '', 204
+
+
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
