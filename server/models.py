@@ -30,7 +30,8 @@ class Restaurant(db.Model, SerializerMixin):
     pizzas = db.relationship(
         'Pizza',
         secondary='restaurant_pizzas',
-        back_populates='restaurants'
+        back_populates='restaurants',
+        overlaps="restaurant_pizzas"
     )
 
 
@@ -57,7 +58,8 @@ class Pizza(db.Model, SerializerMixin):
     restaurants = db.relationship(
         'Restaurant',
         secondary='restaurant_pizzas',
-        back_populates='pizzas'
+        back_populates='pizzas',
+        overlaps="restaurant_pizzas"
     )
 
     serialize_rules = ('-restaurant_pizzas.pizza',)
@@ -75,8 +77,13 @@ class RestaurantPizza(db.Model, SerializerMixin):
     restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurants.id'), nullable=False)
     pizza_id = db.Column(db.Integer, db.ForeignKey('pizzas.id'), nullable=False)
     # add relationships
-    restaurant = db.relationship('Restaurant', back_populates='restaurant_pizzas')
-    pizza = db.relationship('Pizza', back_populates='restaurant_pizzas')
+    restaurant = db.relationship('Restaurant', 
+                                 back_populates='restaurant_pizzas',
+                                 overlaps="pizzas, restaurants")
+    
+    pizza = db.relationship('Pizza', 
+                            back_populates='restaurant_pizzas',
+                            overlaps="pizzas, restaurants")
     # add serialization rules
     serialize_rules = ('-restaurant.restaurant_pizzas', '-pizza.restaurant_pizzas')
     # add validation

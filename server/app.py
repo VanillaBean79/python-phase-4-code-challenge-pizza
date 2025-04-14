@@ -29,14 +29,22 @@ def index():
 def get_restaurants():
     restaurants = Restaurant.query.all()
     return make_response(
-        [restaurant.to_dict(rules=('-restaurant_pizzas', '-pizzas',))for restaurant in restaurants],
+        [
+            {
+                "id": restaurant.id,
+                "name": restaurant.name,
+                "address": restaurant.address
+            }
+            for restaurant in restaurants
+        ],
         200
     )
 
 
+
 @app.route('/restaurants/<int:id>')
 def get_restaurant_by_id(id):
-    restaurant = Restaurant.query.get(id)
+    restaurant = db.session.get(Restaurant, id)
     if not restaurant:
         return{"error": "Restaurant not found"}, 404
     
@@ -48,7 +56,7 @@ def get_restaurant_by_id(id):
 
 @app.route('/restaurants/<int:id>', methods=['DELETE'])
 def delete_restaurant(id):
-    restaurant = Restaurant.query.get(id)
+    restaurant = db.session.get(Restaurant, id)
     if not restaurant:
         return {'error': "Restaurant not found"}, 404
     
@@ -56,6 +64,87 @@ def delete_restaurant(id):
     db.session.commit()
 
     return '', 204
+
+
+
+@app.route('/pizzas')
+def get_pizzas():
+    pizzas = Pizza.query.all()
+    return make_response(
+        [
+            {
+                "id": pizza.id,
+                "name": pizza.name,
+                "ingredients": pizza.ingredients
+            }
+            for pizza in pizzas
+        ],
+        200
+    )
+
+
+@app.route('/restaurant_pizzas', methods=['POST'])
+def create_restaurant_pizza():
+    data = request.get_json()
+
+    # Handle invalid/missing JSON body
+    if not isinstance(data, dict):
+        return {"errors": ["Invalid or missing JSON body"]}, 400
+
+    # Validate required fields
+    required_fields = ['price', 'pizza_id', 'restaurant_id']
+    missing_fields = [field for field in required_fields if field not in data]
+
+    if missing_fields:
+        return {"errors": [f"Missing required field(s): {', '.join(missing_fields)}"]}, 400
+
+    price = data['price']
+    pizza_id = data['pizza_id']
+    restaurant_id = data['restaurant_id']
+
+    # Optional: validate types
+    if not isinstance(price, (int, float)) or not isinstance(pizza_id, int) or not isinstance(restaurant_id, int):
+        return {"errors": ["validation errors"]}, 400
+
+    # Validate price range
+    if not (1 <= price <= 30):
+        return {"errors": ["validation errors"]}, 400
+
+    # Check related objects exist
+    pizza = db.session.get(Pizza, pizza_id)
+    restaurant = db.session.get(Restaurant, restaurant_id)
+
+    if not pizza or not restaurant:
+        return {"errors": ["validation errors"]}, 400
+
+    # Create and save the RestaurantPizza
+    new_rp = RestaurantPizza(price=price, pizza_id=pizza_id, restaurant_id=restaurant_id)
+    try:
+        db.session.add(new_rp)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return {"errors": ["Failed to create RestaurantPizza"]}, 400
+
+    # Response with nested pizza and restaurant
+    return make_response({
+        "id": new_rp.id,
+        "price": new_rp.price,
+        "pizza_id": new_rp.pizza_id,
+        "restaurant_id": new_rp.restaurant_id,
+        "pizza": {
+            "id": pizza.id,
+            "name": pizza.name,
+            "ingredients": pizza.ingredients
+        },
+        "restaurant": {
+            "id": restaurant.id,
+            "name": restaurant.name,
+            "address": restaurant.address
+        }
+    }, 201)
+
+
 
 
 if __name__ == "__main__":
